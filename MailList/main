@@ -1,0 +1,48 @@
+#define _CRT_SECURE_NO_WARNINGS 
+#include"contact.h"
+void menu()
+{
+	printf("******1.ADD    2.SEARCH****\n");
+	printf("******3.DEL    4.SHOW******\n");
+	printf("******5.CLEAR  6.SORT******\n");
+	printf("******0.EXIT***************\n");
+}
+void start()
+{
+	int input = 0;
+	//初始化通讯录
+	Contact con;
+	InitContact(&con);
+	do
+	{
+		menu(); 
+		printf("请选择操作\n");
+		scanf("%d", &input);
+		switch (input)
+		{
+		case ADD:
+			AddContact(&con);
+			break;
+		case SEARCH:
+			SearchContact(&con);
+			break;
+		case DEL:
+			DelContact(&con);
+			break;
+		case SHOW:
+			ShowContact(&con);
+			break;
+		case CLEAR:
+			ClearContact(&con);
+			break;
+		/*case SORT:
+			SortContact(&con);*/
+		}
+	} while (input);
+}
+int main()
+{
+	start();
+	system("pause");
+	return 0;
+}
