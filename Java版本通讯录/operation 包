@@ -1,0 +1,189 @@
+IOperation 接口：
+
+package operation;
+
+import contact.ContactList;
+
+public interface IOperation {
+    void work(ContactList contactList);
+}
+
+
+AddOperation 类：添加联系人
+
+package operation;
+
+import contact.Contact;
+import contact.ContactList;
+
+import java.util.Scanner;
+
+public class AddOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("添加联系人");
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("请输入添加联系人的姓名：");
+        String name = scanner.next();
+        System.out.println("请输入添加联系人的号码：");
+        String id = scanner.next();
+        Contact contact = new Contact(name,id);
+        contactList.setContact(contactList.getSize(),contact);
+        contactList.setSize(contactList.getSize() + 1);
+        System.out.println("添加成功!");
+        if (contactList.getSize() == contactList.contacts.length) {
+            //进行扩容
+            Contact[] newContacts = new Contact[contactList.contacts.length * 2];
+            for (int i = 0; i < contactList.getSize(); i++) {
+                newContacts[i] = contactList.contacts[i];
+            }
+            contactList.contacts = newContacts;
+            System.out.println("扩容成功 !");
+        }
+        return;
+    }
+}
+
+
+ClearOperation 类：清空联系人
+
+package operation;
+
+import contact.ContactList;
+
+public class ClearOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("清空链表");
+        contactList.setSize(0);
+        System.out.println("清空成功!");
+        return;
+    }
+}
+
+
+DelectOperation 类：删除指定联系人
+
+package operation;
+
+import contact.Contact;
+import contact.ContactList;
+
+import java.util.Scanner;
+
+public class DelectOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("删除联系人");
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("请输入删除联系人的姓名：");
+        String name = scanner.next();
+        //先查找
+        for (int i = 0; i < contactList.getSize(); i++) {
+            Contact contact = contactList.getContact(i);
+            if (contact.getName().equals(name)) {
+                //找到了，进行具体的删除
+                contactList.setContact(i,contactList.getContact(contactList.getSize() -1));
+                contactList.setSize(contactList.getSize() - 1);
+                System.out.println("删除成功!");
+                return;
+            }
+        }
+        System.out.println("查无此人");
+        return;
+    }
+}
+
+
+ExitOperation 类：退出程序
+
+package operation;
+
+import contact.ContactList;
+
+public class ExitOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("goodbye!");
+        System.exit(0);
+    }
+}
+
+SearchOperation 类：查找指定联系人
+
+package operation;
+
+import contact.Contact;
+import contact.ContactList;
+
+import java.util.Scanner;
+
+public class SearchOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("查找联系人信息");
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("请输入要查找联系人的姓名：");
+        String name = scanner.next();
+        for (int i = 0; i < contactList.getSize(); i++) {
+            Contact contact = contactList.getContact(i);
+            if (contact.getName().equals(name)) {
+                System.out.println(contact);
+                return;
+            }
+        }
+        System.out.println("查无此人");
+        return;
+    }
+}
+
+
+ShowOperation 类：打印所有联系人信息
+
+package operation;
+
+import contact.Contact;
+import contact.ContactList;
+
+public class ShowOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("展示所有联系人信息");
+        for (int i = 0; i < contactList.getSize(); i++) {
+            Contact contact = contactList.getContact(i);
+            System.out.println(contact);
+        }
+        return;
+    }
+}
+
+
+SortOperation 类：对所有联系人按照姓名首字母顺序排序
+
+package operation;
+
+import contact.Contact;
+import contact.ContactList;
+
+public class SortOperation implements IOperation {
+    @Override
+    public void work(ContactList contactList) {
+        System.out.println("进行联系人排序（首字母大小）");
+        for (int i = 0; i < contactList.getSize() - 1; i++) {
+            contactList.contacts[i] = contactList.getContact(i);
+            contactList.contacts[i + 1] = contactList.getContact(i + 1);
+            if (contactList.contacts[i + 1].getName().compareTo(contactList.contacts[i].getName()) < 0) {
+                //进行交换
+                Contact tmp = contactList.contacts[i];
+                contactList.contacts[i] = contactList.contacts[i + 1];
+                contactList.contacts[i + 1] = tmp;
+            }
+        }
+        new ShowOperation().work(contactList);
+        return;
+    }
+}
+
+
+
+
