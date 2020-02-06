@@ -1,0 +1,40 @@
+import java.io.*;
+import java.net.Socket;
+import java.util.Scanner;
+
+public class TcpClient {
+    private static final String HOST = "localhost";
+    private static final int PORT = 9999;
+    public static void main(String[] args) {
+        try {
+            Socket socket = new Socket(HOST, PORT);
+            // 客户端发送数据 IO 流
+            OutputStream os = socket.getOutputStream();
+            PrintWriter pw = new PrintWriter(os, true);
+            // 客户端从服务端获取输入流
+            InputStream is = socket.getInputStream();
+            InputStreamReader isr = new InputStreamReader(is);
+            BufferedReader br = new BufferedReader(isr);
+//            String content;
+//            while ((content = br.readLine()) != null) {
+//                System.out.println(content);
+//            }
+//            br.readLine()
+            // 接收控制台输入数据
+            Scanner sc = new Scanner(System.in);
+            while (sc.hasNext()) {
+                // 向服务端发送数据
+                String line = sc.nextLine();
+                pw.println(line);
+                // 接收服务端的数据
+                String content = br.readLine();
+                System.out.println("rev: " + content);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+
+        }
+
+    }
+}
