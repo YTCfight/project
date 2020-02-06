@@ -1,0 +1,33 @@
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public class TcpServer {
+    private static int PORT = 9999;
+    public static void main(String[] args) {
+        try {
+            //while (true) {
+                ServerSocket server = new ServerSocket(PORT);
+                Socket socket = server.accept();
+                // 服务端接收数据
+                InputStream inputStream = socket.getInputStream();
+                InputStreamReader isr = new InputStreamReader(inputStream);
+                BufferedReader reader = new BufferedReader(isr);
+                // 服务端发送数据 IO 输出流
+                OutputStream os = socket.getOutputStream();
+                PrintWriter pw = new PrintWriter(os, true);
+                String data = null;
+                while ((data = reader.readLine()) != null) {
+                    // 打印客户端的数据
+                    System.out.println(data);
+                    // 向客户端发送数据
+                    pw.println("已经收到数据【" + data + "】");
+                }
+            //}
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+
+        }
+    }
+}
