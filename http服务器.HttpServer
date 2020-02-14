@@ -1,0 +1,231 @@
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class HttpServer {
+
+    // 端口号
+    private static final int PORT = 9999;
+
+    // 获取处理器核数
+    private static final int COUNT = Runtime.getRuntime().availableProcessors();
+
+    // 处理的任务量和线程数量、CPU、内存等资源都相关
+    // 一般推荐使用跟处理器核数数量相等的线程数
+    private static final ExecutorService EXE =
+            Executors.newFixedThreadPool(COUNT);
+
+    public static Map<String, String> SESSION = new HashMap<>();
+
+    public static void main(String[] args) throws IOException {
+        ServerSocket server = new ServerSocket(PORT);
+        // 一个 socket 对象代表一个客户端
+        while (true) {
+            // 获取客户端请求 socket 对象：阻塞方法
+            Socket socket = server.accept();
+            EXE.submit(new HttpTask(socket));
+        }
+    }
+}
+
+// Http请求任务处理类
+
+class HttpTask implements Runnable {
+
+    private Socket socket;
+
+    // 构造方法
+    public HttpTask(Socket socket) {
+        this.socket = socket;
+    }
+
+    @Override
+    public void run() {
+        // 获取客户端请求数据：输入流
+        InputStream is = null;
+        InputStreamReader isr = null;
+        BufferedReader br = null;
+
+        // 获取客户端输出流，返回响应数据
+        OutputStream os = null;
+        PrintWriter pw = null;
+
+        try {
+            try {
+                is = socket.getInputStream();
+                // 响应输出数据
+                // 将原生的字节流转换成字符流，方便处理
+                isr = new InputStreamReader(is, StandardCharsets.UTF_8);
+                // 转换流放在缓冲流中读取效率比较高
+                br = new BufferedReader(isr);
+                Request request = new Request();
+                // 请求数据的解析：http协议报的解包
+                // 1.解析请求行(第一行): Method URL Version
+                String requestLine = br.readLine();
+                // 根据 " " 把请求行分成三部分
+                String[] requestLines = requestLine.split(" ");
+                // 添加 method
+                request.setMethod(requestLines[0]);
+                // 可能为 http://localhost:9999/xxx?uername=stu&passord=123
+                String url = requestLines[1];
+                // 当 method 为 get 时可能需要解析请求正文
+                if (url.contains("?")) {
+                    String parameters = url.substring(url.indexOf("?") + 1);
+                    request.parseParamaters(parameters);
+                    url = url.substring(0, url.indexOf("?"));
+                }
+                // 添加 url
+                request.setUrl(url);
+                // 添加 version
+                request.setVersion(requestLines[2]);
+                // 2.解析请求头
+                // key : value 每个换行，以空行作为结尾
+                String header;
+                while ((header = br.readLine()) != null && header.length() != 0) {
+                    // 第一个条件保证请求头还没有结束，
+                    // 第二个条件保证读取到的元素不是空行
+                   String key = header.substring(0, header.indexOf(":"));
+                   String value = header.substring(header.indexOf(":") + 1);
+                   request.addHeader(key, value.trim());
+                }
+                // POST请求，需要根据请求头 Content-Length 获取请求体的长度
+                if ("POST".equals(request.getMethod())) {
+                    String len = request.getHeader("Content-Length");
+
+                    if (len != null) {
+                        // 将 String 类型转换为 int 类型
+                        int l = Integer.parseInt(len);
+                        char[] chars = new char[l];
+                        br.read(chars, 0, l);
+                        // 请求参数格式：username=stu&password=123
+                        String s = new String(chars);
+                        //String requestBody = Arrays.toString(chars);
+                        //System.out.println(requestBody + "hehe");
+                        //request.parseParamaters(requestBody);
+                        request.parseParamaters(s);
+                        //String[] ps = s.split("&");
+//                        for (String p : ps) {
+//                            String[] array = p.split("=");
+//                            request.addParameter(array[0], array[1]);
+//                            System.out.println(array[0] + "### " + array[1]);
+//                        }
+                        //System.out.println("req body==="+requestBody);
+                    }
+                }
+                System.out.println(request);
+
+
+                os = socket.getOutputStream();
+                pw = new PrintWriter(os, true);
+                // http://localhost:9999/302/111
+                if ("/302".equals(request.getUrl())) {
+                    pw.println("HTTP/1.1 302 重定向");
+                    pw.println("Content-Type: text/html;charset=utf-8");
+                    pw.println("Location: https://www.baidu.com");
+                } else if ("/login".equals(request.getUrl())) {
+                    pw.println("HTTP/1.1 200 OK");
+                    String username = request.getParameter("username");
+
+
+                    String sessionId = UUID.randomUUID().toString();
+                    // 在服务器保存生成的 sessionId 和 username 对应的哈希表
+                    HttpServer.SESSION.put(sessionId, username);
+                    pw.println("Set-Cookie: SESSIONID=" + sessionId);
+                    pw.println("Content-Type: text/html; charset=utf-8");
+                    String content= "<h2>欢迎用户[" + request.getParameter("username") + "]登录</h2>";
+                    pw.println("Content-Length: " + content.getBytes().length);
+                    pw.println();
+                    pw.println(content);
+
+                } else if ("/setCookie".equals(request.getUrl())) {
+                    pw.println("HTTP/1.1 200 OK");
+                    String sessionId = UUID.randomUUID().toString();
+                    // 根据原来的 Cookie 值找到对应的 value 即 username
+                    String oldCookie = request.getHeader("Cookie");
+                    String[] arr = oldCookie.split("=");
+                    String old = arr[1];
+                    String name = HttpServer.SESSION.get(old);
+                    HttpServer.SESSION.put(sessionId, name);
+                    pw.println("Set-Cookie: SESSIONID=" + sessionId);
+                    pw.println("Content-Type: text/html; charset=utf-8");
+                    String content = "<h2>sseion重置成功！</h2>";
+                    pw.println("Content-Length: "+content.getBytes().length);
+                    pw.println();
+                    pw.println(content);
+                } else if ("/getCookie".equals(request.getUrl())) {
+                    String cookie = request.getHeader("Cookie");
+                    String[] cookies = cookie.split(";");
+                    for (String s : cookies) {
+                        String[] s2 = s.split("=");
+                        String key = s2[0].trim();
+                        String value = s2[1].trim();
+                        if (key.equals("SESSIONID") && HttpServer.SESSION.containsKey(value)) {
+                            pw.println("HTTP/1.1 200 OK");
+                            pw.println("Content-Type: text/html; charset=utf-8");
+                            pw.println();
+                            pw.println("<h2>用户" + HttpServer.SESSION.get(value) + "能够访问</h2>");
+                            return;
+                        }
+                    }
+                    pw.println("HTTP/1.1 403 Forbidden");
+                    pw.println("Content-Type: text/html; charset=utf-8");
+                    pw.println();
+                    pw.println("没有访问权限");
+                } else {
+                    // 访问 /login.html,转化为访问./login.html
+                    // 其中 ./ 表示当前目录下的文件
+                    InputStream htmlIs = HttpServer.class.getClassLoader()
+                            .getResourceAsStream("." + request.getUrl());
+                    if (htmlIs != null) {
+                        pw.println("HTTP/1.1 200 OK");
+                        pw.println("Content-Type: text/html; charset=utf-8");
+                        pw.println();
+
+                        // 返回 webapp 下的静态资源文件内容
+                        InputStreamReader htmlIsr = new InputStreamReader(htmlIs);
+                        BufferedReader htmlBr = new BufferedReader(htmlIsr);
+                        String content;
+                        while ((content = htmlBr.readLine()) != null) {
+                            pw.println(content);
+                        }
+                    } else {
+                        // 返回 404
+                        pw.println("HTTP/1.1 404 Not Found");
+                        pw.println("Content-Type: text/html; charset=utf-8");
+                        pw.println();
+                        pw.println("<h2>找不到资源</h2>");
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                // 关闭流:反向关闭
+                if (br != null) {
+                    br.close();
+                }
+                if (isr != null) {
+                    isr.close();
+                }
+                if (is != null) {
+                    is.close();
+                }
+                if (pw != null) {
+                    pw.close();
+                }
+                if (os != null) {
+                    os.close();
+                }
+                // 关闭客户端连接(短连接)
+                socket.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
